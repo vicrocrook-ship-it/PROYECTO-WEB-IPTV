@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Player Universal</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; display: flex; margin: 0; background: #141414; color: #fff; height: 100vh; overflow: hidden; }
+        
+        /* Barra lateral izquierda */
+        #sidebar { width: 340px; background: #1f1f1f; display: flex; flex-direction: column; border-right: 1px solid #2a2a2a; }
+        .config-box { padding: 15px; border-bottom: 1px solid #2a2a2a; background: #1a1a1a; }
+        .config-box label { font-size: 12px; color: #aaa; font-weight: bold; display: block; margin-bottom: 5px; }
+        .input-group { display: flex; gap: 5px; }
+        
+        input[type="text"] { flex: 1; background: #2b2b2b; border: 1px solid #3a3a3a; padding: 8px 12px; color: #fff; border-radius: 4px; }
+        button { background: #0078d4; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #005a9e; }
+        
+        #search { margin: 15px; padding: 8px; background: #2b2b2b; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px; }
+        
+        /* Lista de reproducción */
+        #playlist { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        #playlist li { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #2a2a2a; font-size: 14px; }
+        #playlist li:hover { background: #2a2a2a; }
+        #playlist li.active { background: #0078d4; font-weight: bold; }
+        .status-msg { padding: 20px; text-align: center; color: #888; font-style: italic; }
+
+        /* Contenedor del reproductor */
+        #video-container { flex: 1; display: flex; justify-content: center; align-items: center; background: #000; }
+        video { width: 100%; height: 100%; max-height: 100vh; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="config-box">
+            <label for="server-url">Cargar Lista IPTV (.m3u)</label>
+            <div class="input-group">
+                <input type="text" id="server-url" placeholder="http://tu-servidor.com/lista.m3u">
+                <button id="btn-cargar">Cargar</button>
+            </div>
+        </div>
+        
+        <input type="text" id="search" placeholder="🔍 Buscar canal...">
+        
+        <ul id="playlist">
+            <div class="status-msg">Ingresa una URL de tu lista IPTV arriba para empezar.</div>
+        </ul>
+    </div>
+
+    <div id="video-container">
+        <video id="video" controls autoplay></video>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
