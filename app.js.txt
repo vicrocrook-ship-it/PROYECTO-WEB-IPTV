@@ -1,0 +1,122 @@
+const video = document.getElementById('video');
+const playlistUI = document.getElementById('playlist');
+const searchInput = document.getElementById('search');
+const serverInput = document.getElementById('server-url');
+const btnCargar = document.getElementById('btn-cargar');
+
+let canales = []; // Aquí guardaremos los canales estructurados
+
+// 1. Intentar cargar la última lista guardada en el navegador al abrir la web
+document.addEventListener('DOMContentLoaded', () => {
+    const listaGuardada = localStorage.getItem('ultima_lista_iptv');
+    if (listaGuardada) {
+        serverInput.value = listaGuardada;
+        cargarIPTV(listaGuardada);
+    }
+});
+
+// 2. Escuchar el evento del botón para cargar nuevas listas
+btnCargar.addEventListener('click', () => {
+    const urlUptv = serverInput.value.trim();
+    if (urlUptv) {
+        // Guardar la URL en el almacenamiento local del navegador
+        localStorage.setItem('ultima_lista_iptv', urlUptv);
+        cargarIPTV(urlUptv);
+    } else {
+        alert("Por favor, ingresa una URL válida.");
+    }
+});
+
+// 3. Obtener el archivo M3U desde internet
+async function cargarIPTV(url) {
+    try {
+        playlistUI.innerHTML = '<div class="status-msg">Descargando y procesando canales...</div>';
+        
+        const respuesta = await fetch(url);
+        if (!respuesta.ok) throw new Error("No se pudo obtener el archivo.");
+        
+        const texto = await respuesta.text();
+        canales = parsearM3U(texto);
+        
+        if (canales.length === 0) {
+            playlistUI.innerHTML = '<div class="status-msg" style="color: #ff4d4d;">No se encontraron canales en esta lista o el formato es incorrecto.</div>';
+        } else {
+            renderizarLista(canales);
+        }
+    } catch (error) {
+        playlistUI.innerHTML = `
+            <div class="status-msg" style="color: #ff4d4d;">
+                <strong>Error al cargar la lista.</strong><br>
+                Posible bloqueo CORS de tu servidor o URL inválida.
+            </div>`;
+        console.error("Error IPTV:", error);
+    }
+}
+
+// 4. Procesador inteligente de archivos M3U
+function parsearM3U(texto) {
+    const lineas = texto.split('\n');
+    const resultado = [];
+    let canalActual = null;
+
+    lineas.forEach(linea => {
+        linea = linea.trim();
+        if (linea.startsWith('#EXTINF:')) {
+            // Buscamos el nombre del canal después de la última coma
+            const partes = linea.split(',');
+            const nombre = partes[partes.length - 1] || "Canal sin nombre";
+            canalActual = { nombre: nombre };
+        } else if (linea.startsWith('http') && canalActual) {
+            // Asignamos la URL de streaming al canal anterior
+            canalActual.url = linea;
+            resultado.push(canalActual);
+            canalActual = null; 
+        }
+    });
+    return resultado;
+}
+
+// 5. Dibujar los canales en la barra lateral
+function renderizarLista(lista) {
+    playlistUI.innerHTML = "";
+    
+    lista.forEach(canal => {
+        const li = document.createElement('li');
+        li.textContent = canal.nombre;
+        
+        li.addEventListener('click', () => {
+            // Quitar clase activa de otros canales y ponérsela a este
+            document.querySelectorAll('#playlist li').forEach(el => el.classList.remove('active'));
+            li.classList.add('active');
+            
+            reproducirCanal(canal.url);
+        });
+        
+        playlistUI.appendChild(li);
+    });
+}
+
+// 6. Motor del reproductor de video (HLS / m3u8)
+function reproducirCanal(url) {
+    if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(e => console.log("Auto-play bloqueado por el navegador, requiere clic del usuario."));
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Compatibilidad nativa (Apple Safari / iOS)
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => video.play());
+    } else {
+        alert("Tu navegador de internet no soporta el formato de este streaming (HLS).");
+    }
+}
+
+// 7. Filtro del buscador en tiempo real
+searchInput.addEventListener('input', (e) => {
+    const busqueda = e.target.value.toLowerCase();
+    const filtrados = canales.filter(c => c.nombre.toLowerCase().includes(busqueda));
+    renderizarLista(filtrados);
+});
