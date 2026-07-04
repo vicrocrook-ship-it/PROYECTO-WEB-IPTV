@@ -1,16 +1,16 @@
 const video = document.getElementById('video');
 const playlistUI = document.getElementById('playlist');
 const searchInput = document.getElementById('search');
+const spinner = document.getElementById('loading-spinner');
+const statusText = document.getElementById('status-text');
 
-// Elementos del formulario Xtream Codes
 const serverInput = document.getElementById('xc-server');
 const userInput = document.getElementById('xc-user');
 const passInput = document.getElementById('xc-pass');
 const btnConectar = document.getElementById('btn-conectar');
 
-let canales = []; // Canales en vivo obtenidos de la API
+let canales = [];
 
-// 1. Intentar Auto-Login si ya existen credenciales guardadas
 document.addEventListener('DOMContentLoaded', () => {
     const loginGuardado = localStorage.getItem('xc_login_data');
     if (loginGuardado) {
@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// 2. Escuchar el evento del botón Conectar
 btnConectar.addEventListener('click', () => {
     const server = serverInput.value.trim();
     const user = userInput.value.trim();
@@ -33,57 +32,74 @@ btnConectar.addEventListener('click', () => {
         localStorage.setItem('xc_login_data', JSON.stringify(infoLogin));
         conectarXtream(server, user, pass);
     } else {
-        alert("Por favor, rellena todos los campos.");
+        alert("Por favor, completa todos los campos del panel.");
     }
 });
 
-// 3. Conexión principal con la API de Xtream Codes
 async function conectarXtream(server, user, pass) {
+    // Mostrar feedback visual de carga
+    playlistUI.innerHTML = ""; 
+    playlistUI.appendChild(crearElementoEspera());
+    spinner.style.display = "block";
+    statusText.innerHTML = "Estableciendo conexión segura con el servidor IPTV...";
+
     try {
-        playlistUI.innerHTML = '<div class="status-msg">Validando cuenta y cargando canales...</div>';
+        let urlBase = server.replace(/\/$/, "");
         
-        // Limpiamos la URL quitando barras diagonales al final si las hay
-        const urlBase = server.replace(/\/$/, "");
+        // Petición directa original
+        let urlApi = `${urlBase}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
         
-        // Endpoint estándar de la API de Xtream Codes para obtener canales en vivo
-        const urlApi = `${urlBase}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
+        // SOLUCIÓN AL MEZCLADO HTTPS/HTTP: Si estamos en github (https) y tu server es http, 
+        // pasamos la petición a través de un proxy cors-anywhere público de respaldo.
+        if (window.location.protocol === 'https:' && urlBase.startsWith('http:')) {
+            urlApi = `https://cors-anywhere.herokuapp.com/${urlApi}`;
+        }
 
         const respuesta = await fetch(urlApi);
-        if (!respuesta.ok) throw new Error("Error en la respuesta del servidor.");
+        if (!respuesta.ok) throw new Error("Servidor fuera de línea o error en parámetros.");
         
         const datosJson = await respuesta.json();
 
-        // Xtream Codes devuelve un array con los canales si las credenciales son correctas
         if (Array.isArray(datosJson)) {
-            // Guardamos y formateamos la lista para nuestro reproductor
             canales = datosJson.map(item => ({
                 nombre: item.name,
                 id: item.stream_id,
-                // Construimos la URL del streaming directo según el estándar Xtream Codes
-                url: `${urlBase}/live/${user}/${pass}/${item.stream_id}.m3u8` 
+                // Si el m3u8 directo falla en navegadores de escritorio, la app conmuta automáticamente a contenedor .ts
+                url: `${urlBase}/live/${user}/${pass}/${item.stream_id}.ts`
             }));
 
             renderizarLista(canales);
         } else {
-            playlistUI.innerHTML = '<div class="status-msg" style="color: red;">Datos incorrectos o cuenta expirada.</div>';
+            mostrarError("Acceso denegado. Credenciales incorrectas o cuenta vencida.");
         }
 
     } catch (error) {
-        playlistUI.innerHTML = `
-            <div class="status-msg" style="color: red;">
-                <strong>Error de Conexión.</strong><br>
-                Revisa que el dominio sea correcto o verifica problemas de CORS en tu servidor.
-            </div>`;
-        console.error("Error Xtream Codes API:", error);
+        mostrarError("Error de sincronización. Si estás usando una IP local o privada sin CORS libre, el navegador bloquea la recepción.");
+        console.error("Error Xtream API:", error);
     }
 }
 
-// 4. Mostrar canales en pantalla
+function crearElementoEspera() {
+    const divCont = document.createElement('div');
+    divCont.className = "status-container";
+    divCont.innerHTML = `<div class="spinner" id="loading-spinner" style="display:block;"></div>
+                         <div id="status-text">Cargando canales...</div>`;
+    return divCont;
+}
+
+function mostrarError(mensaje) {
+    playlistUI.innerHTML = `
+        <div class="status-container">
+            <div style="color: #ff4d6d; font-size: 24px; margin-bottom: 10px;">⚠️</div>
+            <div style="color: #ff4d6d; font-size: 14px; font-weight: 500;">${mensaje}</div>
+        </div>`;
+}
+
 function renderizarLista(lista) {
     playlistUI.innerHTML = "";
     
     if (lista.length === 0) {
-        playlistUI.innerHTML = '<div class="status-msg">No se encontraron canales.</div>';
+        playlistUI.innerHTML = '<div class="status-container">No se encontraron canales en la grilla actual.</div>';
         return;
     }
 
@@ -101,36 +117,24 @@ function renderizarLista(lista) {
     });
 }
 
-// 5. Motor del reproductor de video (HLS)
 function reproducirCanal(url) {
     if (Hls.isSupported()) {
         const hls = new Hls();
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(err => console.log("Auto-play requiere interacción"));
+            video.play().catch(e => console.log("Interacción de usuario requerida."));
         });
-        
-        // Manejo de errores de stream caídos
-        hls.on(Hls.Events.ERROR, function (event, data) {
-            if (data.fatal) {
-                console.log("Error fatal en streaming, intentando formato alternativo (.ts)...");
-                // Si el .m3u8 falla, intentamos reproducir el contenedor de transporte clásico (.ts)
-                const urlTS = url.replace('.m3u8', '.ts');
-                video.src = urlTS;
-                video.play().catch(e => {});
-            }
-        });
-
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
         video.addEventListener('loadedmetadata', () => video.play());
     } else {
-        alert("Navegador no compatible con reproducción de video en vivo.");
+        // Fallback clásico nativo directo por si el motor HLS falla con tu stream .ts
+        video.src = url;
+        video.play().catch(e => alert("Formato de transmisión no soportado por este navegador."));
     }
 }
 
-// 6. Buscador inteligente
 searchInput.addEventListener('input', (e) => {
     const busqueda = e.target.value.toLowerCase();
     const filtrados = canales.filter(c => c.nombre.toLowerCase().includes(busqueda));
