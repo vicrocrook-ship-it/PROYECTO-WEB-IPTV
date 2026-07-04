@@ -37,26 +37,26 @@ btnConectar.addEventListener('click', () => {
 });
 
 async function conectarXtream(server, user, pass) {
-    // Mostrar feedback visual de carga
     playlistUI.innerHTML = ""; 
     playlistUI.appendChild(crearElementoEspera());
-    spinner.style.display = "block";
-    statusText.innerHTML = "Estableciendo conexión segura con el servidor IPTV...";
-
+    
     try {
+        // Aseguramos que la URL use 'http' nativo para que el servidor responda correctamente
         let urlBase = server.replace(/\/$/, "");
-        
-        // Petición directa original
-        let urlApi = `${urlBase}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
-        
-        // SOLUCIÓN AL MEZCLADO HTTPS/HTTP: Si estamos en github (https) y tu server es http, 
-        // pasamos la petición a través de un proxy cors-anywhere público de respaldo.
-        if (window.location.protocol === 'https:' && urlBase.startsWith('http:')) {
-            urlApi = `https://cors-anywhere.herokuapp.com/${urlApi}`;
+        if (urlBase.startsWith("https://")) {
+            urlBase = urlBase.replace("https://", "http://");
+        } else if (!urlBase.startsWith("http://")) {
+            urlBase = "http://" + urlBase;
         }
+        
+        // Generamos la URL de la API de Xtream Codes
+        const urlApi = `${urlBase}/player_api.php?username=${user}&password=${pass}&action=get_live_streams`;
+        
+        // Pasamos la petición por el proxy inverso de 'corsproxy.io' para evadir las restricciones del navegador
+        const urlConProxy = `https://corsproxy.io/?${encodeURIComponent(urlApi)}`;
 
-        const respuesta = await fetch(urlApi);
-        if (!respuesta.ok) throw new Error("Servidor fuera de línea o error en parámetros.");
+        const respuesta = await fetch(urlConProxy);
+        if (!respuesta.ok) throw new Error("Error al conectar con el proxy.");
         
         const datosJson = await respuesta.json();
 
@@ -64,17 +64,17 @@ async function conectarXtream(server, user, pass) {
             canales = datosJson.map(item => ({
                 nombre: item.name,
                 id: item.stream_id,
-                // Si el m3u8 directo falla en navegadores de escritorio, la app conmuta automáticamente a contenedor .ts
+                // URL directa del canal en formato contenedor .ts (más compatible en navegadores con reproductores Xtream)
                 url: `${urlBase}/live/${user}/${pass}/${item.stream_id}.ts`
             }));
 
             renderizarLista(canales);
         } else {
-            mostrarError("Acceso denegado. Credenciales incorrectas o cuenta vencida.");
+            mostrarError("Acceso denegado. Verifica que tu usuario o contraseña no hayan vencido.");
         }
 
     } catch (error) {
-        mostrarError("Error de sincronización. Si estás usando una IP local o privada sin CORS libre, el navegador bloquea la recepción.");
+        mostrarError("Error de sincronización. El servidor IPTV no responde o bloquea peticiones externas a través del proxy.");
         console.error("Error Xtream API:", error);
     }
 }
@@ -82,16 +82,16 @@ async function conectarXtream(server, user, pass) {
 function crearElementoEspera() {
     const divCont = document.createElement('div');
     divCont.className = "status-container";
-    divCont.innerHTML = `<div class="spinner" id="loading-spinner" style="display:block;"></div>
-                         <div id="status-text">Cargando canales...</div>`;
+    divCont.innerHTML = `<div class="spinner" id="loading-spinner" style="display:block; margin: 0 auto 10px auto;"></div>
+                         <div id="status-text">Conectando con el servidor IPTV de VICRO SYSTEM...</div>`;
     return divCont;
 }
 
 function mostrarError(mensaje) {
     playlistUI.innerHTML = `
-        <div class="status-container">
+        <div class="status-container" style="text-align: center; padding: 20px;">
             <div style="color: #ff4d6d; font-size: 24px; margin-bottom: 10px;">⚠️</div>
-            <div style="color: #ff4d6d; font-size: 14px; font-weight: 500;">${mensaje}</div>
+            <div style="color: #ff4d6d; font-size: 14px; font-weight: 500; line-height: 1.4;">${mensaje}</div>
         </div>`;
 }
 
@@ -123,15 +123,14 @@ function reproducirCanal(url) {
         hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            video.play().catch(e => console.log("Interacción de usuario requerida."));
+            video.play().catch(e => console.log("Interacción requerida"));
         });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
         video.addEventListener('loadedmetadata', () => video.play());
     } else {
-        // Fallback clásico nativo directo por si el motor HLS falla con tu stream .ts
         video.src = url;
-        video.play().catch(e => alert("Formato de transmisión no soportado por este navegador."));
+        video.play().catch(e => alert("Tu navegador no soporta el formato de video directo .ts o .m3u8 de este stream."));
     }
 }
 
