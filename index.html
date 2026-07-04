@@ -3,51 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Player Universal</title>
+    <title>IPTV Player - Xtream Codes</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: sans-serif; display: flex; margin: 0; background: #141414; color: #fff; height: 100vh; overflow: hidden; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; margin: 0; background: #141414; color: #fff; height: 100vh; overflow: hidden; }
         
-        /* Barra lateral izquierda */
-        #sidebar { width: 340px; background: #1f1f1f; display: flex; flex-direction: column; border-right: 1px solid #2a2a2a; }
-        .config-box { padding: 15px; border-bottom: 1px solid #2a2a2a; background: #1a1a1a; }
-        .config-box label { font-size: 12px; color: #aaa; font-weight: bold; display: block; margin-bottom: 5px; }
-        .input-group { display: flex; gap: 5px; }
+        /* Barra lateral con Login y Canales */
+        #sidebar { width: 350px; background: #1f1f1f; display: flex; flex-direction: column; border-right: 1px solid #2a2a2a; }
+        .login-box { padding: 15px; border-bottom: 1px solid #2a2a2a; background: #161616; display: flex; flex-direction: column; gap: 8px; }
+        .login-box label { font-size: 11px; color: #aaa; font-weight: bold; text-transform: uppercase; }
         
-        input[type="text"] { flex: 1; background: #2b2b2b; border: 1px solid #3a3a3a; padding: 8px 12px; color: #fff; border-radius: 4px; }
-        button { background: #0078d4; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        input { background: #2b2b2b; border: 1px solid #3a3a3a; padding: 8px 12px; color: #fff; border-radius: 4px; font-size: 14px; width: 100%; }
+        input:focus { outline: 1px solid #0078d4; }
+        
+        button { background: #0078d4; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; width: 100%; }
         button:hover { background: #005a9e; }
         
-        #search { margin: 15px; padding: 8px; background: #2b2b2b; border: 1px solid #3a3a3a; color: #fff; border-radius: 4px; }
+        .search-box { padding: 10px 15px; background: #1a1a1a; }
         
-        /* Lista de reproducción */
+        /* Lista de canales */
         #playlist { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
-        #playlist li { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #2a2a2a; font-size: 14px; }
+        #playlist li { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #2a2a2a; font-size: 14px; display: flex; align-items: center; justify-content: space-between; }
         #playlist li:hover { background: #2a2a2a; }
         #playlist li.active { background: #0078d4; font-weight: bold; }
-        .status-msg { padding: 20px; text-align: center; color: #888; font-style: italic; }
+        .status-msg { padding: 25px; text-align: center; color: #888; font-style: italic; font-size: 14px; }
 
         /* Contenedor del reproductor */
         #video-container { flex: 1; display: flex; justify-content: center; align-items: center; background: #000; }
-        video { width: 100%; height: 100%; max-height: 100vh; }
+        video { width: 100%; height: 100%; max-height: 100vh; background: #000; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <div class="config-box">
-            <label for="server-url">Cargar Lista IPTV (.m3u)</label>
-            <div class="input-group">
-                <input type="text" id="server-url" placeholder="http://tu-servidor.com/lista.m3u">
-                <button id="btn-cargar">Cargar</button>
-            </div>
+        <div class="login-box">
+            <label>Servidor (URL)</label>
+            <input type="text" id="xc-server" placeholder="http://ejemplo.com:8080">
+            
+            <label>Usuario</label>
+            <input type="text" id="xc-user" placeholder="Tu usuario">
+            
+            <label>Contraseña</label>
+            <input type="password" id="xc-pass" placeholder="Tu contraseña">
+            
+            <button id="btn-conectar">Conectar Cuenta</button>
         </div>
         
-        <input type="text" id="search" placeholder="🔍 Buscar canal...">
+        <div class="search-box">
+            <input type="text" id="search" placeholder="🔍 Buscar canal en vivo...">
+        </div>
         
         <ul id="playlist">
-            <div class="status-msg">Ingresa una URL de tu lista IPTV arriba para empezar.</div>
+            <div class="status-msg">Introduce tus credenciales Xtream Codes para cargar tus canales.</div>
         </ul>
     </div>
 
